@@ -1,0 +1,6 @@
+git clone git@github.com:comex/datautils0.git
+cd datautils0
+git clone git@github.com:comex/data.git
+make NATIVE=1
+./make_kernel_patchfile /path/to/kernelcache /tmp/patchfile
+./apply_patchfile /path/to/kernelcache /tmp/patchfile /output/patched/kernelcache
