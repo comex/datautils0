@@ -4,6 +4,9 @@
 #include <data/link.h>
 #include "lambda.h"
 
+extern unsigned char sandbox_o[];
+extern unsigned int sandbox_o_len;
+
 int patchfd;
 
 static inline void patch_with_range(const char *name, addr_t addr, prange_t pr) {
@@ -179,9 +182,9 @@ int main(int argc, char **argv) {
     b_init(&kernel);
     b_init(&sandbox);
     b_load_macho(&kernel, argv[1], false);
-    b_load_macho(&sandbox, argv[2], true);
+    b_prange_load_macho(&sandbox, (prange_t) {&sandbox_o, sandbox_o_len}, "sandbox.o");
 
-    patchfd = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    patchfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(patchfd == -1) {
         edie("could not open patchfd");
     }
