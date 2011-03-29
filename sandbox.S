@@ -62,6 +62,9 @@ actually_eval:
     mov lr, r0
     ldr r1, orig_addr
     mov r9, r1
+
+    # XXX - this is really stupid; it should be handled at compile time, but if not, at least it should be tst r1, #1
+
     ldr r0, is_armv7
     cmp r0, #0
     pop {r0-r4}
