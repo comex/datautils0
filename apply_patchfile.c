@@ -36,6 +36,8 @@ int main(int argc, char **argv) {
         assert(read(patchfd, stuff, size) == (ssize_t) size);
         
         if(addr == 0) goto skip;
+        // Patches starting with "+" only make sense to apply after the kernel has already booted.
+        // They may be in BSS.
         if(name[0] == '+') goto skip;
 
         if(argv[4] && !strcmp(argv[4], "-i")) {
