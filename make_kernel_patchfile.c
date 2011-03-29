@@ -120,7 +120,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
           resolve_ldr(binary, _PE_i_can_has_debugger + 2),
           uint32_t, {1});
 
-    patch("debug_enabled initializer",
+    patch("-debug_enabled initializer",
           find_data(b_macho_segrange(binary, "__TEXT"), is_armv7 ? "04 22 01 92 00 98 .. 49 -" : "?", 0, true),
           uint32_t, {0x60082001}); // mov r0, #1; str r0, [r1]
 
