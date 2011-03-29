@@ -174,6 +174,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
 
 int main(int argc, char **argv) {
+    (void) argc;
     struct binary kernel, sandbox;
     b_init(&kernel);
     b_init(&sandbox);

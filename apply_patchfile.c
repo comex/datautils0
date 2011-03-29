@@ -3,6 +3,7 @@
 #include <assert.h>
 
 int main(int argc, char **argv) {
+    (void) argc;
     struct binary binary;
     b_init(&binary);
     mode_t mode;
