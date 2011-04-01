@@ -15,6 +15,8 @@ addr         4
 datalen      4
 data         datalen
 
+- If the address is 0, skip.
+
 - If you're patching the kernel after it has already booted, you can (but need not) skip patches with names starting with "-".
 
 - apply_patchfile patches the kernel to start /sbin/lunchd instead of launchd.  You can remove that, but the idea is that the filesystem looks like this:
