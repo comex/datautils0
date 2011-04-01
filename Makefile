@@ -12,11 +12,11 @@ sandbox.o: sandbox.S
 sandboxc.c: sandbox.o
 	xxd -i sandbox.o > sandboxc.c
 
-check_sanity: check_sanity.o
+check_sanity: check_sanity.o $(DATA)/libdata.a
 	$(GCC) -o $@ $^ $(DATA)/libdata.a
-apply_patchfile: apply_patchfile.o
+apply_patchfile: apply_patchfile.o $(DATA)/libdata.a
 	$(GCC) -o $@ $^ $(DATA)/libdata.a
-make_kernel_patchfile: make_kernel_patchfile.o sandboxc.o
+make_kernel_patchfile: make_kernel_patchfile.o sandboxc.o $(DATA)/libdata.a
 	$(GCC) -o $@ $^ $(DATA)/libdata.a
 
 clean:
