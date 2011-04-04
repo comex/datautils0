@@ -46,16 +46,14 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
     bool is_armv7 = binary->actual_cpusubtype == 9;
 
-    addr_t _kernel_pmap, _PE_i_can_has_debugger, _vn_getpath, _memcmp;
+    addr_t _PE_i_can_has_debugger, _vn_getpath, _memcmp;
     bool four_dot_three;
     if(0) {
-        _kernel_pmap = 0x8027e2dc;
         _PE_i_can_has_debugger = 0x80203f75;
         _vn_getpath = 0x8008d7bd;
         _memcmp = 0x8006558d;
         four_dot_three = true;
     } else {
-        _kernel_pmap = b_sym(binary, "_kernel_pmap", false, true);
         _PE_i_can_has_debugger = b_sym(binary, "_PE_i_can_has_debugger", true, true);
         _vn_getpath = b_sym(binary, "_vn_getpath", true, true);
         _memcmp = b_sym(binary, "_memcmp", true, true);
@@ -67,7 +65,6 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 #define spec2(armv7, armv6) (is_armv7 ? (armv7) : (armv6))
 #define spec3(four_three, armv7, armv6) (four_dot_three ? (four_three) : spec2(armv7, armv6))
 
-    addr_t nxei; findmany_add(&nxei, text, spec3("23 68 - c3 f8 24 84", "03 68 - c3 f8 20 24", "84 23 db 00 - d5 50 22 68"));
     addr_t vme; findmany_add(&vme, text, spec2("- 02 0f .. .. 63 08 03 f0 01 05 e3 0a 13 f0 01 03", "- .. .. .. .. .. 08 1e 1c .. 0a 01 22 .. 1c 16 40 .. 40"));
     addr_t vmp; findmany_add(&vmp, text, spec2("- 25 f0 04 05 .. e7 92 45 98 bf 02 99 .. d8", "?"));
     addr_t mystery = find_data(b_macho_segrange(binary, "__PRELINK_TEXT"), spec3("- f0 b5 03 af 4d f8 04 8d .. .. 03 78 80 46", "- 90 b5 01 af 14 29 .. .. .. .. 90 f8 00 c0", "???"), 0, true);
@@ -78,7 +75,6 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     findmany_go(text);
 
 
-    patch("-kernel_pmap.nx_enabled initializer", nxei, uint32_t, {spec3(0x6424f8c3, 0xc420f8c3, 0x682250d0)});
     // vm_map_enter (patch1) - allow RWX pages
     patch("vm_map_enter", vme, uint32_t, {spec2(0x46c00f02, 0x46c046c0)});
     // vm_map_protect - allow vm_protect etc. to create RWX pages
@@ -100,10 +96,6 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
 
     // patches
-    patch("+kernel_pmap.nx_enabled",
-          b_read32(binary, _kernel_pmap) + 0x420,
-          uint32_t, {0});
-
     patch("-lunchd",
           find_string(b_macho_segrange(binary, "__DATA"), "/sbin/launchd", 0, true),
           char, "/sbin/lunchd");
