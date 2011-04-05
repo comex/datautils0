@@ -4,8 +4,7 @@ start:
 // <- 
     push {r0-r4, lr}
     sub sp, #0x44
-    ldr r2, dvp_struct_offset
-    ldr r4, [r3, r2]
+    ldr r4, [r3, #0x14]
     cmp r4, #0
     beq actually_eval
     ldr r3, vn_getpath
@@ -63,10 +62,9 @@ actually_eval:
     ldr r1, orig_addr
     mov r9, r1
 
-    # XXX - this is really stupid; it should be handled at compile time, but if not, at least it should be tst r1, #1
-
-    ldr r0, is_armv7
-    cmp r0, #0
+    # XXX - this is really stupid; it should be handled at compile time
+    movs r2, #1
+    tst r1, r2
     pop {r0-r4}
     add sp, #4
     beq armlol
@@ -92,5 +90,3 @@ preferences: .ascii "/private/var/mobile/Library/Preferences"
 orig_addr: .long c_sb_evaluate_jumpto
 memcmp: .long c_memcmp
 vn_getpath: .long c_vn_getpath
-dvp_struct_offset: .long c_dvp_struct_offset
-is_armv7: .long c_is_armv7

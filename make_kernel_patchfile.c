@@ -42,7 +42,7 @@ addr_t find_sysctl(struct binary *binary, const char *name) {
 }
 
 void do_kernel(struct binary *binary, struct binary *sandbox) {
-    //printf("%x\n", find_dvp_struct_offset(binary));
+    //printf("** DVP is %x\n", find_dvp_struct_offset(binary));
 
     bool is_armv7 = binary->actual_cpusubtype == 9;
 
@@ -123,8 +123,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
         if(!strcmp(name, "c_sb_evaluate_jumpto")) return sb_evaluate + (is_armv7 ? 9 : 8);
         if(!strcmp(name, "c_memcmp")) return _memcmp;
         if(!strcmp(name, "c_vn_getpath")) return _vn_getpath;
-        if(!strcmp(name, "c_dvp_struct_offset")) return spec3(0xde, 0xad, 0xbe);
-        if(!strcmp(name, "c_is_armv7")) return is_armv7;
+        //if(!strcmp(name, "c_dvp_struct_offset")) return spec2(0xde, 0xad, 0xbe);
         die("? %s", name);
     })
     b_relocate(sandbox, (void *) l.arg, (void *) l.func, 0);
