@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
                 goto retry;
             }
         } else {
-            printf("%s\n", name);
+            printf("%s (0x%x)\n", name, addr);
         }
 
         memcpy((char *) kernel.start + range_to_off_range((range_t) {&binary, addr, size}).start, stuff, size);
