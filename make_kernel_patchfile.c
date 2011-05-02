@@ -104,6 +104,10 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
           find_sysctl(binary, "proc_enforce"),
           uint32_t, {0});
     
+    /*patch("vnode_enforce",
+          find_sysctl(binary, "vnode_enforce"),
+          uint32_t, {0});*/
+    
     // sandbox
     range_t range = b_macho_segrange(binary, "__PRELINK_TEXT");
     addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", false, true), true), is_armv7);
@@ -129,7 +133,9 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
           uint32_t, {(is_armv7 ? 0xf000f8df : 0xe51ff004), scratch | 1});
 
     // "note"
+#ifndef __arm__
     patch("scratch", 0, uint32_t, {(scratch + sandbox_pr.size + 0xfff) & ~0xfff});
+#endif
 }
 
 

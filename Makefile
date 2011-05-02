@@ -1,23 +1,26 @@
 DATA = $(word 1,$(wildcard ./data ../data))
+CFLAGS += -I$(DATA)
 include $(DATA)/Makefile.common
 
-BINS := check_sanity make_kernel_patchfile apply_patchfile sandboxc.c
-all: .settings .data $(BINS)
+BINS := $(OUTDIR)/check_sanity $(OUTDIR)/make_kernel_patchfile $(OUTDIR)/apply_patchfile sandboxc.c
+
+all: .data $(OUTDIR) $(BINS)
 .data:
 	make -C $(DATA)
-%.o: %.c
-	$(GCC) -c -o $@ $< -I$(DATA)
+$(OUTDIR):
+	mkdir $(OUTDIR)
+
 sandbox.o: sandbox.S
 	$(SDK_GCC) -c -o $@ $<
 sandboxc.c: sandbox.o
 	xxd -i sandbox.o > sandboxc.c
 
-check_sanity: check_sanity.o $(DATA)/libdata.a
-	$(GCC) -o $@ $^ $(DATA)/libdata.a
-apply_patchfile: apply_patchfile.o $(DATA)/libdata.a
-	$(GCC) -o $@ $^ $(DATA)/libdata.a
-make_kernel_patchfile: make_kernel_patchfile.o sandboxc.o $(DATA)/libdata.a
-	$(GCC) -o $@ $^ $(DATA)/libdata.a
+$(OUTDIR)/check_sanity: $(OUTDIR)/check_sanity.o $(DATA)/$(OUTDIR)/libdata.a
+	$(GCC) -o $@ $^
+$(OUTDIR)/apply_patchfile: $(OUTDIR)/apply_patchfile.o $(DATA)/$(OUTDIR)/libdata.a
+	$(GCC) -o $@ $^
+$(OUTDIR)/make_kernel_patchfile: $(OUTDIR)/make_kernel_patchfile.o $(OUTDIR)/sandboxc.o $(DATA)/$(OUTDIR)/libdata.a
+	$(GCC) -o $@ $^
 
-clean:
-	rm -f $(BINS) *.o
+clean: .clean
+	rm -f sandbox.o sandboxc.c
