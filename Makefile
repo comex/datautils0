@@ -6,8 +6,6 @@ BINS := $(OUTDIR)/check_sanity $(OUTDIR)/make_kernel_patchfile $(OUTDIR)/apply_p
 
 all: .data $(OUTDIR) $(BINS)
 
-.data:
-	make -C $(DATA)
 $(OUTDIR):
 	mkdir $(OUTDIR)
 
