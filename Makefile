@@ -22,6 +22,8 @@ $(OUTDIR)/make_kernel_patchfile: $(OUTDIR)/make_kernel_patchfile.o $(OUTDIR)/san
 	$(GCC) -o $@ $^
 $(OUTDIR)/dump_range: $(OUTDIR)/dump_range.o $(DATA)/$(OUTDIR)/libdata.a
 	$(GCC) -o $@ $^
+$(OUTDIR)/fakesym: $(OUTDIR)/fakesym.o $(DATA)/$(OUTDIR)/libdata.a
+	$(GCC) -o $@ $^
 
 clean: .clean
 	rm -f sandbox.o sandboxc.c

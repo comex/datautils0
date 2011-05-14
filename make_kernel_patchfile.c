@@ -26,8 +26,8 @@ static inline void patch_with_range(const char *name, addr_t addr, prange_t pr) 
 uint32_t find_dvp_struct_offset(struct binary *binary) {
     bool is_armv7 = binary->actual_cpusubtype == 9;
     range_t range = b_macho_segrange(binary, "__PRELINK_TEXT");
-    addr_t derive_vnode_path = find_bof(range, find_int32(range, find_string(range, "path", 0, true), true), is_armv7);
-    uint8_t byte = b_read8(binary, find_data((range_t){binary, derive_vnode_path, 1024}, !is_armv7 ? "00 00 50 e3 02 30 a0 11 - .. 00 94 e5" : "- .. 69 6a 46", 0, true));
+    addr_t derive_vnode_path = find_bof(range, find_int32(range, find_string(range, "path", 0, MUST_FIND), MUST_FIND), is_armv7) & ~1;
+    uint8_t byte = b_read8(binary, find_data((range_t){binary, derive_vnode_path, 1024}, !is_armv7 ? "00 00 50 e3 02 30 a0 11 - .. 00 94 e5" : "- .. 69 6a 46", 0, MUST_FIND));
     if(is_armv7) {
         return (4 | (byte >> 6)) << 2;
     } else {
@@ -36,8 +36,8 @@ uint32_t find_dvp_struct_offset(struct binary *binary) {
 }
 
 addr_t find_sysctl(struct binary *binary, const char *name) {
-    addr_t cs = find_string(b_macho_segrange(binary, "__TEXT"), name, 0, true);
-    addr_t csref = find_int32(b_macho_segrange(binary, "__DATA"), cs, true);
+    addr_t cs = find_string(b_macho_segrange(binary, "__TEXT"), name, 0, MUST_FIND);
+    addr_t csref = find_int32(b_macho_segrange(binary, "__DATA"), cs, MUST_FIND);
     return b_read32(binary, csref - 8);
 }
 
@@ -48,30 +48,25 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
     addr_t _PE_i_can_has_debugger, _vn_getpath, _memcmp;
     bool four_dot_three;
-    if(0) {
-        _PE_i_can_has_debugger = 0x80203f75;
-        _vn_getpath = 0x8008d7bd;
-        _memcmp = 0x8006558d;
-        four_dot_three = true;
-    } else {
-        _PE_i_can_has_debugger = b_sym(binary, "_PE_i_can_has_debugger", true, true);
-        _vn_getpath = b_sym(binary, "_vn_getpath", true, true);
-        _memcmp = b_sym(binary, "_memcmp", true, true);
-        // a new symbol
-        four_dot_three = b_sym(binary, "_vfs_getattr", false, false);
-    }
 
     struct findmany *text = findmany_init(b_macho_segrange(binary, "__TEXT"));
+
+    _PE_i_can_has_debugger = b_sym(binary, "_PE_i_can_has_debugger", MUST_FIND | TO_EXECUTE);
+    _vn_getpath = b_sym(binary, "_vn_getpath", MUST_FIND | TO_EXECUTE);
+    _memcmp = b_sym(binary, "_memcmp", MUST_FIND | TO_EXECUTE);
+    // a new symbol
+    four_dot_three = b_sym(binary, "_vfs_getattr", 0);
+
 #define spec2(armv7, armv6) (is_armv7 ? (armv7) : (armv6))
 #define spec3(four_three, armv7, armv6) (four_dot_three ? (four_three) : spec2(armv7, armv6))
 
     addr_t vme; findmany_add(&vme, text, spec2("- 02 0f .. .. 63 08 03 f0 01 05 e3 0a 13 f0 01 03", "- .. .. .. .. .. 08 1e 1c .. 0a 01 22 .. 1c 16 40 .. 40"));
     addr_t vmp; findmany_add(&vmp, text, spec2("- 25 f0 04 05 .. e7 92 45 98 bf 02 99 .. d8", "?"));
-    addr_t mystery = find_data(b_macho_segrange(binary, "__PRELINK_TEXT"), spec3("- f0 b5 03 af 4d f8 04 8d .. .. 03 78 80 46", "- 90 b5 01 af 14 29 .. .. .. .. 90 f8 00 c0", "???"), 0, true);
+    addr_t mystery = find_data(b_macho_segrange(binary, "__PRELINK_TEXT"), spec3("- f0 b5 03 af 4d f8 04 8d .. .. 03 78 80 46", "- 90 b5 01 af 14 29 .. .. .. .. 90 f8 00 c0", "???"), 0, MUST_FIND);
     addr_t dei; findmany_add(&dei, text, spec2("04 22 01 92 00 98 .. 49 -", "?"));
     addr_t tfp0; findmany_add(&tfp0, text, spec2("85 68 00 23 .. 93 .. 93 - 5c b9 02 a8 29 46 04 22", "85 68 .. 93 .. 93 - 00 2c 0b d1"));
     addr_t csedp; findmany_add(&csedp, text, spec3("1d ee 90 3f d3 f8 80 33 93 f8 94 30 1b 09 03 f0 01 02 + .. .. .. ..", "1d ee 90 3f d3 f8 4c 33 d3 f8 9c 20 + .. .. .. .. 19 68 00 29", "9c 22 03 59 99 58 + .. .. 1a 68 00 2a"));
-
+    
     findmany_go(text);
 
 
@@ -97,7 +92,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
     // patches
     patch("-lunchd",
-          find_string(b_macho_segrange(binary, "__DATA"), "/sbin/launchd", 0, true),
+          find_string(b_macho_segrange(binary, "__DATA"), "/sbin/launchd", 0, MUST_FIND),
           char, "/sbin/lunchd");
 
     patch("proc_enforce",
@@ -110,7 +105,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     
     // sandbox
     range_t range = b_macho_segrange(binary, "__PRELINK_TEXT");
-    addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", false, true), true), is_armv7);
+    addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", 0, MUST_FIND), MUST_FIND), is_armv7) & ~1;
     
    
     DECL_LAMBDA(l, uint32_t, (const char *name), {
