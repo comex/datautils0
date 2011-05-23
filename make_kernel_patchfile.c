@@ -91,9 +91,9 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 
 
     // patches
-    patch("-lunchd",
-          find_string(b_macho_segrange(binary, "__DATA"), "/sbin/launchd", 0, MUST_FIND),
-          char, "/sbin/lunchd");
+    //patch("-lunchd",
+    //      find_string(b_macho_segrange(binary, "__DATA"), "/sbin/launchd", 0, MUST_FIND),
+    //      char, "/sbin/lunchd");
 
     patch("proc_enforce",
           find_sysctl(binary, "proc_enforce"),

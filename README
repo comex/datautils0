@@ -1,9 +1,9 @@
 git clone git@github.com:comex/datautils0.git
 cd datautils0
 git clone git@github.com:comex/data.git
-make NATIVE=1
-./make_kernel_patchfile /path/to/kernelcache /tmp/patchfile
-./apply_patchfile /path/to/kernelcache /tmp/patchfile /output/patched/kernelcache
+make BUILD=native
+native/make_kernel_patchfile /path/to/kernelcache /tmp/patchfile
+native/apply_patchfile /path/to/kernelcache /tmp/patchfile /output/patched/kernelcache
 
 Patchfile format:
 
@@ -18,17 +18,3 @@ data         datalen
 - If the address is 0, skip.
 
 - If you're patching the kernel after it has already booted, you can (but need not) skip patches with names starting with "-".
-
-- apply_patchfile patches the kernel to start /sbin/lunchd instead of launchd.  You can remove that, but the idea is that the filesystem looks like this:
-
-/sbin/launchd: an untether exploit that execs /sbin/lunchd; skipped by an already-patched kernel
-/sbin/lunchd: a script that execs /sbin/launchd.real with DYLD_INSERT_LIBRARIES set to the dylibs in /Library/LaunchExtensions; this may be used in the future by MobileSubstrate
-/sbin/launchd.real: the original /sbin/launchd
-
-This is the lunchd script:
-
-    #!/bin/bash
-    shopt -s nullglob
-    dylibs=$(for dylib in /Library/LaunchExtensions/*.dylib; do echo -n "$dylib:"; done)
-    export DYLD_INSERT_LIBRARIES=${dylibs%:}
-    exec -a /sbin/launchd /sbin/launchd.real
