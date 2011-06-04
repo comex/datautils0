@@ -2,7 +2,7 @@ DATA = $(word 1,$(wildcard ./data ../data))
 CFLAGS += -I$(DATA)
 include $(DATA)/Makefile.common
 
-BINS := $(OUTDIR)/check_sanity $(OUTDIR)/make_kernel_patchfile $(OUTDIR)/apply_patchfile $(OUTDIR)/dump_range $(OUTDIR)/nm sandboxc.c
+BINS := $(OUTDIR)/check_sanity $(OUTDIR)/make_kernel_patchfile $(OUTDIR)/apply_patchfile $(OUTDIR)/dump_range $(OUTDIR)/nm $(OUTDIR)/grapher sandboxc.c
 
 all: .data $(OUTDIR) $(BINS)
 
@@ -24,6 +24,8 @@ $(OUTDIR)/dump_range: $(OUTDIR)/dump_range.o $(DATA)/$(OUTDIR)/libdata.a
 	$(GCC) -o $@ $^
 $(OUTDIR)/nm: $(OUTDIR)/nm.o $(DATA)/$(OUTDIR)/libdata.a
 	$(GCC) -o $@ $^
+$(OUTDIR)/grapher: $(OUTDIR)/grapher.o $(DATA)/$(OUTDIR)/libdata.a
+	$(GXX) -o $@ $^ -O3
 
 clean: .clean
 	rm -f sandbox.o sandboxc.c
