@@ -1,5 +1,4 @@
-#include <data/common.h>
-#include <data/binary.h>
+#include <data/mach-o/binary.h>
 #include <assert.h>
 
 int main(int argc, char **argv) {
@@ -8,7 +7,7 @@ int main(int argc, char **argv) {
     b_init(&binary);
     mode_t mode;
     prange_t kernel = load_file(argv[1], true, &mode);
-    b_prange_load_macho(&binary, kernel, argv[1]);
+    b_prange_load_macho(&binary, kernel, 0, argv[1]);
 
     int patchfd = open(argv[2], O_RDONLY);
     if(patchfd == -1) {
@@ -55,7 +54,7 @@ int main(int argc, char **argv) {
             printf("%s (0x%x)\n", name, addr);
         }
 
-        memcpy((char *) kernel.start + range_to_off_range((range_t) {&binary, addr, size}).start, stuff, size);
+        memcpy((char *) kernel.start + range_to_off_range((range_t) {&binary, addr, size}, MUST_FIND).start, stuff, size);
 
         skip:
 

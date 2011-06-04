@@ -1,6 +1,5 @@
-#include <data/common.h>
-#include <data/binary.h>
-#include <data/loader.h>
+#include <data/mach-o/binary.h>
+#include <data/mach-o/headers/loader.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -11,9 +10,9 @@ int main(int argc, char **argv) {
     }
     struct binary binary;
     b_init(&binary);
-    b_load_macho(&binary, argv[1], false);
+    b_prange_load_macho(&binary, load_file(argv[1], false, NULL), 0, argv[1]);
     int result = 0;
-    CMD_ITERATE(binary.mach_hdr, cmd) {
+    CMD_ITERATE(binary.mach->hdr, cmd) {
         if(cmd->cmd == LC_SEGMENT) {
             struct segment_command *seg = (void *) cmd;
             uint32_t start = seg->vmaddr;

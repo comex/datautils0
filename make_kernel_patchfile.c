@@ -1,7 +1,7 @@
 #include <data/common.h>
 #include <data/find.h>
-#include <data/binary.h>
-#include <data/link.h>
+#include <data/mach-o/binary.h>
+#include <data/mach-o/link.h>
 #include "lambda.h"
 
 extern unsigned char sandbox_o[];
@@ -118,7 +118,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
         die("? %s", name);
     })
     b_relocate(sandbox, (void *) l.arg, (void *) l.func, 0);
-    prange_t sandbox_pr = rangeconv(b_nth_segment(sandbox, 0));
+    prange_t sandbox_pr = rangeconv_off(sandbox->segments[0].file_range, MUST_FIND);
     patch_with_range("sb_evaluate hook",
                      scratch,
                      sandbox_pr);
@@ -139,8 +139,8 @@ int main(int argc, char **argv) {
     struct binary kernel, sandbox;
     b_init(&kernel);
     b_init(&sandbox);
-    b_load_macho(&kernel, argv[1], false);
-    b_prange_load_macho(&sandbox, (prange_t) {&sandbox_o, sandbox_o_len}, "sandbox.o");
+    b_load_macho(&kernel, argv[1]);
+    b_prange_load_macho(&sandbox, (prange_t) {&sandbox_o, sandbox_o_len}, 0, "sandbox.o");
 
     patchfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(patchfd == -1) {
