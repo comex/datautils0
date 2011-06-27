@@ -62,23 +62,19 @@ actually_eval:
     ldr r1, orig_addr
     mov r9, r1
 
-    # XXX - this is really stupid; it should be handled at compile time
-    movs r2, #1
-    tst r1, r2
     pop {r0-r4}
     add sp, #4
-    beq armlol
-    .long c_sb_evaluate_orig1
-    .long c_sb_evaluate_orig2
-    bx r9
-armlol:
+
+#ifndef __ARM_ARCH_7A__
     bx pc
+.align 2
 .arm
-    .align 2
+#endif
     .long c_sb_evaluate_orig1
     .long c_sb_evaluate_orig2
+    .long c_sb_evaluate_orig3
+    .long c_sb_evaluate_orig4
     bx r9
-    
 
 .align 2
 var_mobile: .ascii "/private/var/mobile"

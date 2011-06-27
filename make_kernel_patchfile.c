@@ -4,8 +4,8 @@
 #include <data/mach-o/link.h>
 #include "lambda.h"
 
-extern unsigned char sandbox_o[];
-extern unsigned int sandbox_o_len;
+extern unsigned char sandbox_armv6_o[], sandbox_armv7_o[];
+extern unsigned int sandbox_armv6_o_len, sandbox_armv7_o_len;
 
 int patchfd;
 
@@ -111,7 +111,10 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     DECL_LAMBDA(l, uint32_t, (const char *name), {
         if(!strcmp(name, "c_sb_evaluate_orig1")) return b_read32(binary, sb_evaluate);
         if(!strcmp(name, "c_sb_evaluate_orig2")) return b_read32(binary, sb_evaluate + 4);
-        if(!strcmp(name, "c_sb_evaluate_jumpto")) return sb_evaluate + (is_armv7 ? 9 : 8);
+        if(!strcmp(name, "c_sb_evaluate_orig3")) return b_read32(binary, sb_evaluate + 8);
+        if(!strcmp(name, "c_sb_evaluate_orig4")) return b_read32(binary, sb_evaluate + 12);
+        if(!strcmp(name, "c_sb_evaluate_jumpto")) return sb_evaluate + (is_armv7 ? 17 : 16);
+
         if(!strcmp(name, "c_memcmp")) return _memcmp;
         if(!strcmp(name, "c_vn_getpath")) return _vn_getpath;
         //if(!strcmp(name, "c_dvp_struct_offset")) return spec2(0xde, 0xad, 0xbe);
@@ -119,6 +122,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     })
     b_relocate(sandbox, (void *) l.arg, (void *) l.func, 0);
     prange_t sandbox_pr = rangeconv_off(sandbox->segments[0].file_range, MUST_FIND);
+    store_file(sandbox_pr, "/tmp/wtf.o", 0644);
     patch_with_range("sb_evaluate hook",
                      scratch,
                      sandbox_pr);
@@ -140,7 +144,7 @@ int main(int argc, char **argv) {
     b_init(&kernel);
     b_init(&sandbox);
     b_load_macho(&kernel, argv[1]);
-    b_prange_load_macho(&sandbox, (prange_t) {&sandbox_o, sandbox_o_len}, 0, "sandbox.o");
+    b_prange_load_macho(&sandbox, kernel.actual_cpusubtype == 9 ? (prange_t) {sandbox_armv7_o, sandbox_armv7_o_len} : (prange_t) {sandbox_armv6_o, sandbox_armv6_o_len}, 0, "sandbox.o");
 
     patchfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(patchfd == -1) {
