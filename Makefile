@@ -33,6 +33,8 @@ $(OUTDIR)/grapher: $(OUTDIR)/grapher.o $(DATA)/$(OUTDIR)/libdata.a
 	$(GXX) -o $@ $^ -O3
 $(OUTDIR)/decrypt_kern: $(OUTDIR)/decrypt_kern.o $(DATA)/$(OUTDIR)/libdata.a
 	$(GCC) -o $@ $^ -O3
+$(OUTDIR)/codesign_allocate: $(OUTDIR)/codesign_allocate.o
+	$(GCC) -o $@ $^ -O3
 
 clean: .clean
 	rm -f sandboxc-{armv6,armv7}.c sandbox-{armv6,armv7}.o

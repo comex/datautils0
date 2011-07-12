@@ -356,7 +356,7 @@ struct Binary {
         assert(constructor);
         unordered_map<addr_t, const char *> metaClasses;
         for(auto edge : constructor->backward) {
-            auto nameAddr = edge->source->refs.begin()->second;
+            auto nameAddr = edge->source->refs.begin()->first.second;
             if(!nameAddr) continue;
             // xxx
             auto className = (const char *) rangeconv((range_t) {&binary, nameAddr, 128}, 0).start;
@@ -366,15 +366,16 @@ struct Binary {
             addr_t metaClass;
             auto it = mcInstantiator->refs.begin();
             for(it++; it != mcInstantiator->refs.end(); it++) {
-                if(it->second == edge->source->startAddr) {
+                if(it->first.second == edge->source->startAddr) {
                     auto it2 = it;
                     it2--;
-                    metaClass = it2->second;
+                    metaClass = it2->first.second;
                     goto ok;
                 }
             }
             continue;
             ok:
+            if(explain) printf("ok %s\n", className);
             metaClasses[metaClass] = className;
         }
 
@@ -382,9 +383,9 @@ struct Binary {
         for(auto edge : constructed->backward) {
             if(edge->source->refs.size() == 4) {
                 auto it = edge->source->refs.begin();
-                auto metaClass = it->second;
+                auto metaClass = it->first.second;
                 it++; it++;
-                auto vtable = it->second - 8;
+                auto vtable = it->first.second - 8;
                 auto className = metaClasses[metaClass];
                 if(!className) continue;
 

@@ -87,8 +87,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     patch("cs_enforcement_disable", resolve_ldr(binary, csedp), uint32_t, {1});
 
     addr_t scratch = resolve_ldr(binary, is_armv7 ? (mystery + 9) : 42);
-
-
+    scratch = (scratch + 3) & ~3;
 
     // patches
     //patch("-lunchd",
@@ -120,7 +119,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
         //if(!strcmp(name, "c_dvp_struct_offset")) return spec2(0xde, 0xad, 0xbe);
         die("? %s", name);
     })
-    b_relocate(sandbox, (void *) l.arg, (void *) l.func, 0);
+    b_relocate(sandbox, (void *) l.arg, RELOC_DEFAULT, (void *) l.func, 0);
     prange_t sandbox_pr = rangeconv_off(sandbox->segments[0].file_range, MUST_FIND);
     store_file(sandbox_pr, "/tmp/wtf.o", 0644);
     patch_with_range("sb_evaluate hook",
