@@ -66,6 +66,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     addr_t dei; findmany_add(&dei, text, spec2("04 22 01 92 00 98 .. 49 -", "?"));
     addr_t tfp0; findmany_add(&tfp0, text, spec2("85 68 00 23 .. 93 .. 93 - 5c b9 02 a8 29 46 04 22", "85 68 .. 93 .. 93 - 00 2c 0b d1"));
     addr_t csedp; findmany_add(&csedp, text, spec3("1d ee 90 3f d3 f8 80 33 93 f8 94 30 1b 09 03 f0 01 02 + .. .. .. ..", "1d ee 90 3f d3 f8 4c 33 d3 f8 9c 20 + .. .. .. .. 19 68 00 29", "9c 22 03 59 99 58 + .. .. 1a 68 00 2a"));
+    addr_t power = find_data(b_macho_segrange(binary, "__PRELINK_TEXT"), "- 32 20 98 47 .. 68", 0, MUST_FIND);
     
     findmany_go(text);
 
@@ -134,6 +135,11 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
 #ifndef __arm__
     patch("scratch", 0, uint32_t, {(scratch + sandbox_pr.size + 0xfff) & ~0xfff});
 #endif
+
+    if(four_dot_three) {
+        // br0x's camera kit patch    
+        patch("USB power", power, uint8_t, {0xfa});
+    }
 }
 
 
