@@ -6,7 +6,7 @@ int main(int argc, char **argv) {
     }
     uint32_t key_bits;
     char *kern_fn;
-    prange_t data = parse_img3_file(kern_fn = argv[1], &key_bits);
+    prange_t data = parse_img3(load_file(kern_fn = argv[1], false, NULL), &key_bits);
     prange_t key = parse_hex_string(argv[2]);
     prange_t iv = parse_hex_string(argv[3]);
     prange_t decompressed = decrypt_and_decompress(key_bits, key, iv, data);
