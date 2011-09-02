@@ -3,6 +3,7 @@
 #include <data/mach-o/binary.h>
 #include <data/mach-o/link.h>
 #include "lambda.h"
+#include <data/ios-classify.h>
 
 extern unsigned char sandbox_armv6_o[], sandbox_armv7_o[];
 extern unsigned int sandbox_armv6_o_len, sandbox_armv7_o_len;
@@ -23,24 +24,6 @@ static inline void patch_with_range(const char *name, addr_t addr, prange_t pr) 
     ({ typeof_to to_[] = to; \
        patch_with_range(name, addr, (prange_t) {&to_[0], sizeof(to_)}); })
 
-// the spec macro chooses between alternatives depending on the "class"
-// possible "classes": armv6 pre 4.3, armv7 pre 4.3, 4.3.x, 5.0.x
-
-static unsigned int _armv6 = 0;
-static unsigned int _armv7 = 1;
-static unsigned int _43 = 2;
-static unsigned int _50 = 3;
-
-#define spec_(c1, v1, c2, v2, c3, v3, c4, v4, ...) \
-    (class >= (c1) ? (v1) : \
-     class >= (c2) ? (v2) : \
-     class >= (c3) ? (v3) : \
-     class >= (c4) ? (v4) : \
-     (die("no valid alternative"), (typeof(v1+0)) 0))
-#define spec(args...) spec_(args, 10, 0, 10, 0, 10, 0)
-
-#define is_armv7(binary) (binary->actual_cpusubtype == 9)
-
 addr_t find_sysctl(struct binary *binary, const char *name) {
     addr_t cs = find_string(b_macho_segrange(binary, "__TEXT"), name, 0, MUST_FIND);
     addr_t csref = find_int32(b_macho_segrange(binary, "__DATA"), cs, MUST_FIND);
@@ -48,11 +31,7 @@ addr_t find_sysctl(struct binary *binary, const char *name) {
 }
 
 void do_kernel(struct binary *binary, struct binary *sandbox) {
-    unsigned int class;
-    if(!is_armv7(binary)) class = _armv6;
-    else if(!b_sym(binary, "_vfs_getattr", 0)) class = _armv7;
-    else if(!b_sym(binary, "_buf_attr", 0)) class = _43;
-    else class = _50;
+    unsigned int class = classify(binary);
 
     addr_t _PE_i_can_has_debugger, _vn_getpath, _memcmp;
 
