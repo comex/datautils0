@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 static void usage() {
-    fprintf(stderr, "Usage: nm [-exp] [-c subfile] binary [symbol]\n");
+    fprintf(stderr, "Usage: nm [-ixp] [-c subfile] binary [symbol]\n");
     exit(1);
 }
 
