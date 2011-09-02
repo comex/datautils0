@@ -81,7 +81,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     addr_t tfp0; findmany_add(&tfp0, text, spec(_50, "91 e8 01 04 d1 f8 08 80 00 21 02 91 ba f1 00 0f 01 91 - 06 d1 02 a8",
                                                 _armv7, "85 68 00 23 .. 93 .. 93 - 5c b9 02 a8 29 46 04 22",
                                                 _armv6, "85 68 .. 93 .. 93 - 00 2c 0b d1"));
-    addr_t csedp; findmany_add(&csedp, text, spec(_50, "- df f8 88 33 1d ee 90 0f",
+    addr_t csedp; findmany_add(&csedp, text, spec(_50, "df f8 88 33 1d ee 90 0f a2 6a - 1b 68",
                                                   _43, "1d ee 90 3f d3 f8 80 33 93 f8 94 30 1b 09 03 f0 01 02 + .. .. .. ..",
                                                   _armv7, "1d ee 90 3f d3 f8 4c 33 d3 f8 9c 20 + .. .. .. .. 19 68 00 29",
                                                   _armv6, "9c 22 03 59 99 58 + .. .. 1a 68 00 2a"));
@@ -117,7 +117,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
                                                   _armv6, 0xe00b2c00)});
     if(class >= _50) {
         // it moved into BSS?
-        patch("cs_enforcement_disable check", csedp, uint32_t, {0x23012301});
+        patch("cs_enforcement_disable check", csedp, uint16_t, {0x2301});
     } else {
         patch("cs_enforcement_disable", resolve_ldr(binary, csedp), uint32_t, {1});
     }
