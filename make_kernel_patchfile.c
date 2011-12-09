@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
     b_init(&kernel);
     b_init(&sandbox);
     b_load_macho(&kernel, argv[1]);
-    b_prange_load_macho(&sandbox, kernel.actual_cpusubtype == 9 ? (prange_t) {sandbox_armv7_o, sandbox_armv7_o_len} : (prange_t) {sandbox_armv6_o, sandbox_armv6_o_len}, 0, "sandbox.o");
+    b_prange_load_macho(&sandbox, kernel.cpusubtype == 9 ? (prange_t) {sandbox_armv7_o, sandbox_armv7_o_len} : (prange_t) {sandbox_armv6_o, sandbox_armv6_o_len}, 0, "sandbox.o");
 
     patchfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if(patchfd == -1) {
