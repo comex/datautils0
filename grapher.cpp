@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <list>
-#include <unordered_map>
+#include <tr1/unordered_map>
 #include <map>
 #include <set>
 #include <iostream>
@@ -14,6 +14,7 @@
 #include <mach-o/nlist.h>
 #include <math.h>
 using namespace std;
+using namespace std::tr1;
 
 enum {
     FULL_HASH,
@@ -89,13 +90,13 @@ struct Function {
                 jumpTarget = ((p[0] & 0x200) >> 4) | ((p[0] & 0xf8) >> 3);
             } else if((p[0] & 0xf800) == 0x4800) { // LDR literal
                 auto target = (uint32_t *) (p + ((addr & 2) ? 1 : 2) + 2*(p[0] & 0xff));
-                if(target < (uint32_t *) endOfWorld) {
+                if(target < (uint32_t *) endOfWorld && *target) {
                     refs.push_back(make_pair(make_pair(addr, *target), false));
                 }
                 p[0] = 0x45;
             } else if((p[0] & 0xff7f) == 0xf85f) { // LDR literal 2
                 auto target = (uint32_t *) ((uint8_t *) p + ((addr & 2) ? 2 : 4) + (p[1] & 0xfff));
-                if(target < (uint32_t *) endOfWorld) {
+                if(target < (uint32_t *) endOfWorld && *target) {
                     refs.push_back(make_pair(make_pair(addr, *target), false));
                 }
                 p[0] = p[1] = 0x46;
@@ -112,7 +113,8 @@ struct Function {
                 } else { // BLX
                     target &= ~2;
                 }
-                refs.push_back(make_pair(make_pair(addr, target), true));
+                if(target)
+                    refs.push_back(make_pair(make_pair(addr, target), true));
 
                 p[0] = p[1] = 0x46;
             } else if(
@@ -206,6 +208,10 @@ struct Edge {
     }
 };
 
+// this was a lambda, then I tried to compile with clang
+static bool compareStartAddr(Function *const& a, Function *const& b) {
+    return a->startAddr < b->startAddr;
+}
 
 struct Binary {
     struct binary binary;
@@ -254,7 +260,7 @@ struct Binary {
     Function *addFunc(uint16_t *start, uint16_t *end, addr_t addr, int type) {
         Function *&func = funcs[addr];
         if(!func) {
-            func = new Function(start, end, (uint16_t *) (binary.valid_range.start + binary.valid_range.size), addr, reverseSymbols[addr], type);
+            func = new Function(start, end, (uint16_t *) ((char *) binary.valid_range.start + binary.valid_range.size), addr, reverseSymbols[addr], type);
             funcsList.push_back(func);
         }
         return func;
@@ -290,7 +296,9 @@ struct Binary {
             }
         }
 
-        for(auto func : funcsList) {
+        // can't use for( : ) because it will be mutated
+        for(auto i = 0u; i < funcsList.size(); i++) {
+            auto func = funcsList[i];
             for(auto p : func->refs) {
                 auto b = p.first.second;
                 auto executable = p.second;
@@ -304,7 +312,7 @@ struct Binary {
                             // quick guess
                             pr.size = 0;
                         }
-                        func2 = addFunc((uint16_t *) pr.start, (uint16_t *) (pr.start + pr.size), b, INCOMPLETE_FUNC);
+                        func2 = addFunc((uint16_t *) pr.start, (uint16_t *) ((char *) pr.start + pr.size), b, INCOMPLETE_FUNC);
                     }
                     new Edge(func, func2);
                 }
@@ -327,7 +335,7 @@ struct Binary {
             #undef X
         }
 
-        sort(funcsList.begin(), funcsList.end(), [](Function *const& a, Function *const& b) { return a->startAddr < b->startAddr; });
+        sort(funcsList.begin(), funcsList.end(), compareStartAddr);
     }
 
     void doHashes() {
