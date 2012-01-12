@@ -22,24 +22,24 @@ enospc:
     # that error's okay...
 
     mov r0, sp
-    adr r1, var_mobile
-    movs r2, #19 ;# len(var_mobile)
+    adr r1, string
+    movs r2, #19 ;# "/private/var/mobile"
     ldr r3, memcmp
     blx r3
     cmp r0, #0
     bne allow
 
     mov r0, sp
-    adr r1, preferences_com_apple
-    movs r2, #49 ;# len(preferences_com_apple)
+    adr r1, string
+    movs r2, #49 ;# "/private/var/mobile/Library/Preferences/com.apple"
     ldr r3, memcmp
     blx r3
     cmp r0, #0
     beq actually_eval
 
     mov r0, sp
-    adr r1, preferences
-    movs r2, #39 ;# len(preferences)
+    adr r1, string
+    movs r2, #39 ;# "/private/var/mobile/Library/Preferences"
     ldr r3, memcmp
     blx r3
     cmp r0, #0
@@ -77,11 +77,7 @@ actually_eval:
     bx r9
 
 .align 2
-var_mobile: .ascii "/private/var/mobile"
-.align 2
-preferences_com_apple: .ascii "/private/var/mobile/Library/Preferences/com.apple"
-.align 2
-preferences: .ascii "/private/var/mobile/Library/Preferences"
+string: .ascii "/private/var/mobile/Library/Preferences/com.apple"
 .align 2
 orig_addr: .long c_sb_evaluate_jumpto
 memcmp: .long c_memcmp
