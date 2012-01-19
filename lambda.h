@@ -24,9 +24,8 @@ struct _blk {
     ({ union { \
            ret (^blk) args; \
            struct _blk *_blk; \
-           void *vp; \
         } u = { ^ret args body }; \
-       (typ) {u._blk->invoke, u.vp}; \
+       (typ) {u._blk->invoke, u._blk}; \
        })
 #else
 #define LAMBDA_BODY_(typ, ret, args, body) \

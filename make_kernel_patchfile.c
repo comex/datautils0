@@ -30,25 +30,6 @@ addr_t find_sysctl(struct binary *binary, const char *name) {
     return b_read32(binary, csref - 8);
 }
   
-static addr_t sandbox_lookup_sym(const struct binary *binary, const char *name) {
-    // this is stupid
-    addr_t _memcmp = binary->reserved[0],
-           _vn_getpath = binary->reserved[1],
-           sb_evaluate = binary->reserved[2];
-    unsigned int class = classify(binary);
-
-    if(!strcmp(name, "c_sb_evaluate_orig1")) return b_read32(binary, sb_evaluate);
-    if(!strcmp(name, "c_sb_evaluate_orig2")) return b_read32(binary, sb_evaluate + 4);
-    if(!strcmp(name, "c_sb_evaluate_orig3")) return b_read32(binary, sb_evaluate + 8);
-    if(!strcmp(name, "c_sb_evaluate_orig4")) return b_read32(binary, sb_evaluate + 12);
-    if(!strcmp(name, "c_sb_evaluate_jumpto")) return sb_evaluate + spec(_armv7, 17,
-                                                                        _armv6, 16);
-
-    if(!strcmp(name, "c_memcmp")) return _memcmp;
-    if(!strcmp(name, "c_vn_getpath")) return _vn_getpath;
-    die("? %s", name);
-}
-
 void do_kernel(struct binary *binary, struct binary *sandbox) {
     unsigned int class = classify(binary);
 
@@ -144,10 +125,20 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     range_t range = b_macho_segrange(binary, "__PRELINK_TEXT");
     addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", 0, MUST_FIND), MUST_FIND), class >= _armv7) & ~1;
     
-    binary->reserved[0] = _memcmp;
-    binary->reserved[1] = _vn_getpath;
-    binary->reserved[2] = sb_evaluate;
-    b_relocate(sandbox, binary, RELOC_DEFAULT, sandbox_lookup_sym, 0);
+    DECL_LAMBDA(l, addr_t, (const char *name), {
+        if(!strcmp(name, "c_sb_evaluate_orig1")) return b_read32(binary, sb_evaluate);
+        if(!strcmp(name, "c_sb_evaluate_orig2")) return b_read32(binary, sb_evaluate + 4);
+        if(!strcmp(name, "c_sb_evaluate_orig3")) return b_read32(binary, sb_evaluate + 8);
+        if(!strcmp(name, "c_sb_evaluate_orig4")) return b_read32(binary, sb_evaluate + 12);
+        if(!strcmp(name, "c_sb_evaluate_jumpto")) return sb_evaluate + spec(_armv7, 17,
+                                                                            _armv6, 16);
+
+        if(!strcmp(name, "c_memcmp")) return _memcmp;
+        if(!strcmp(name, "c_vn_getpath")) return _vn_getpath;
+        die("? %s", name);
+    });
+    b_relocate(sandbox, binary, RELOC_DEFAULT, l.func, l.arg, 0);
+
     prange_t sandbox_pr = rangeconv_off(sandbox->segments[0].file_range, MUST_FIND);
     store_file(sandbox_pr, "/tmp/wtf.o", 0644);
     patch_with_range("sb_evaluate hook",
