@@ -35,9 +35,21 @@ struct _blk {
 #define LAMBDA_BODY(typ, ret, args, body) \
     LAMBDA_BODY_(typ, ret, LAMBDA_UNPAREN args, body)
 #endif
-#define LAMBDA_UNPAREN(args...) (void *_lambda_ignored, ##args)
+
+// based on http://lefteris.realintelligence.net/?p=593
+#define LAMBDA_YUP() LAMBDA_NOPE
+#define LAMBDA_CHECK_LAMBDA_YUP_() ,
+#define LAMBDA_CHECK_LAMBDA_NOPE_()
+#define LAMBDA_CHECK_LAMBDA_YUP LAMBDA_CHECK_LAMBDA_YUP_,
+#define LAMBDA_CHECK_LAMBDA_NOPE LAMBDA_CHECK_LAMBDA_NOPE_,
+#define LAMBDA_APPLY_FIRST_ARG(a, ...) a()
+#define LAMBDA_COMMA_IF_NONEMPTY___(a...) LAMBDA_APPLY_FIRST_ARG(a)
+#define LAMBDA_COMMA_IF_NONEMPTY__(a) LAMBDA_COMMA_IF_NONEMPTY___(LAMBDA_CHECK_##a)
+#define LAMBDA_COMMA_IF_NONEMPTY_(a) LAMBDA_COMMA_IF_NONEMPTY__(a)
+#define LAMBDA_COMMA_IF_NONEMPTY(a, ...) LAMBDA_COMMA_IF_NONEMPTY_(LAMBDA_YUP a ())
+#define LAMBDA_UNPAREN(args...) (void *_lambda_ignored LAMBDA_COMMA_IF_NONEMPTY(args) args)
 #define DECL_LAMBDA(name, ret, args, body) \
-    struct { \
+    struct __lambda_##name { \
         ret (*func) LAMBDA_UNPAREN args; \
         void *arg; \
-    } name = LAMBDA_BODY(typeof(name), ret, args, body);
+    } name = LAMBDA_BODY(struct __lambda_##name, ret, args, body);
