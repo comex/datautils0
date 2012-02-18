@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
                 goto retry;
             }
         } else {
-            printf("%s (0x%x)\n", name, addr);
+            printf("%s (0x%llx)\n", name, (long long) addr);
         }
 
         memcpy((char *) kernel.start + range_to_off_range((range_t) {&binary, addr, size}, MUST_FIND).start, stuff, size);

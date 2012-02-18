@@ -37,13 +37,13 @@ int main(int argc, char **argv) {
 
 
     if(argv[optind + 1]) {
-        printf("%8x\n", b_sym(&binary, argv[optind + 1], flags));
+        printf("%8llx\n", (long long) b_sym(&binary, argv[optind + 1], flags));
     } else {
         struct data_sym *syms;
         uint32_t nsyms;
         b_copy_syms(&binary, &syms, &nsyms, flags);
         while(nsyms--) {
-            printf("%8x %s\n", syms->address, syms->name);
+            printf("%8llx %s\n", (long long) syms->address, syms->name);
             syms++;
         }
     }
