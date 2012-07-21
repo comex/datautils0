@@ -14,14 +14,14 @@ int main(int argc, char **argv) {
             if(!strcmp(*arg, "-a")) {
                 if(!arg[1] || !arg[2]) goto usage;
                 if(pass == 2) {
-                    dump((range_t) {&binary, parse_hex_uint32(arg[1]), parse_hex_uint32(arg[2])});
+                    dump((range_t) {&binary, parse_hex_addr(arg[1]), parse_hex_addr(arg[2])});
                 }
                 arg += 3;
             } else if(!strcmp(*arg, "-A")) {
                 if(!arg[1] || !arg[2]) goto usage;
                 if(pass == 2) {
-                    uint32_t start = parse_hex_uint32(arg[1]);
-                    dump((range_t) {&binary, start, parse_hex_uint32(arg[2]) - start});
+                    uint32_t start = parse_hex_addr(arg[1]);
+                    dump((range_t) {&binary, start, parse_hex_addr(arg[2]) - start});
                 }
                 arg += 3;
             } else if(!strcmp(*arg, "-s")) {
