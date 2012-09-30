@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <list>
 #include <tr1/unordered_map>
+#include <tr1/unordered_set>
 #include <map>
 #include <set>
 #include <iostream>
@@ -65,7 +66,7 @@ struct Function {
 
     Function(uint16_t *start, uint16_t *end, uint16_t *endOfWorld, addr_t startAddr, const char *name, int type)
     : start(start), end(end), endOfWorld(endOfWorld), startAddr(startAddr), name(name), type(type) {
-        if(start && !end) {
+        if(start && !end && type != INCOMPLETE_FUNC) {
             parse();
         }
         setHash();
@@ -119,7 +120,9 @@ struct Function {
                 p[0] = p[1] = 0x46;
             } else if(
                 (type == THUMB_FUNC && p[0] == (0xbd00 | (start[0] & 0xff))) ||
-                (type == THUMB_VARARGS_FUNC && (p[0] & 0xb000) == 0xb000 && p[1] == 0x4770)) { // end of function
+                ((p[0] & 0xffff) == 0xe8bd && (p[1] & 0x6000)) ||
+                ((p[0] & 0xb000) == 0xb000 && p[1] == 0x4770)) {
+                // end of function
                 jumpTarget = UINT32_MAX;
             }
 
@@ -159,6 +162,13 @@ struct Function {
         if(hstart < start) hstart = start;
         if(hend > end) hend = end;
 
+        // derp, DMB at the start differs
+        if(hend - hstart == 2 && (*((uint32_t *) hstart) & 0xfffffff0) == 0xf57ff050) {
+            hstart += 2;
+            hend += 2;
+        }
+
+        hash = 0;
         for(auto p = hstart; p + 1 <= hend; p++) {
             hash += *p;
         }
@@ -235,7 +245,7 @@ struct Binary {
 
     void doSymbols() {
         for(uint32_t i = 0; i < binary.mach->nsyms; i++) {
-            struct nlist *nl = binary.mach->symtab + i;
+            struct nlist *nl = (struct nlist *) binary.mach->symtab + i;
             if(nl->n_value && (uint32_t) nl->n_un.n_strx < binary.mach->strsize) {
                 auto it = funcs.find(nl->n_value | ((nl->n_desc & N_ARM_THUMB_DEF) ? 1 : 0));
                 if(it != funcs.end()) {
@@ -266,7 +276,7 @@ struct Binary {
         return func;
     }
 
-    void cut(const set<uint32_t>& cutPoints, bool explain) {
+    void cut(const unordered_set<uint32_t>& cutPoints, bool explain) {
         uint32_t x = 0;
         for(auto func : funcsList) {
             uint32_t hash = func->hash;
@@ -274,7 +284,7 @@ struct Binary {
             //func->hash = x;
             //printf("%08x: %x -> %x\n", func->startAddr, hash, func->hash);
             if(cutPoints.find(hash) != cutPoints.end()) {
-                if(explain) printf("CUT: hash %x from %x\n", hash, func->startAddr);
+                if(explain) printf("CUT: hash %x from %x\n", hash, (unsigned int) func->startAddr);
                 x = (hash << 2);
             }
         }
@@ -289,8 +299,13 @@ struct Binary {
         for(uint16_t *p = start; p + 4 <= end; p++, addr += 2) {
             if((p[0] == 0xb40f || p[0] == 0xb40c) && (p[1] & 0xff00) == 0xb500 && (p[2] & 0xff00) == 0xaf00) {
                 addFunc(p, NULL, addr | 1, THUMB_VARARGS_FUNC);
-            } else if((p[0] & 0xff00) == 0xb500 && (p[1] & 0xff00) == 0xaf00) {
-                addFunc(p, NULL, addr | 1, THUMB_FUNC);
+            } else if((p[0] & 0xff00) == 0xb500) {
+                for (uint16_t *q = p + 1; q < p + 8 && q < end; q++) {
+                    if((*q & 0xff00) == 0xaf00 || *q == 0x466f) {
+                        addFunc(p, NULL, addr | 1, THUMB_FUNC);
+                        break;
+                    }
+                }
             } else if((p[0] & 0xf83f) == 0x6800 && p[1] == 0x4770) {
                 addFunc(p, p + 2, addr | 1, THUMB_ACCESSOR_FUNC);
             }
@@ -318,6 +333,8 @@ struct Binary {
                 }
             }
         }
+
+        sort(funcsList.begin(), funcsList.end(), compareStartAddr);
         
         for(auto func : funcsList) {
             #define X(direction, port) \
@@ -334,8 +351,6 @@ struct Binary {
             X(backward, source)
             #undef X
         }
-
-        sort(funcsList.begin(), funcsList.end(), compareStartAddr);
     }
 
     void doHashes() {
@@ -397,7 +412,7 @@ struct Binary {
                 auto className = metaClasses[metaClass];
                 if(!className) continue;
 
-                if(explain) printf("%x: %s\n", metaClass, className);
+                if(explain) printf("%x: %s\n", (unsigned int) metaClass, className);
                     
                 auto func = addFunc(NULL, NULL, vtable, INCOMPLETE_FUNC); 
                 char funcName[128];
@@ -411,26 +426,28 @@ struct Binary {
 
     void injectSymbols(const char *output) {
         // need a fresh copy that's not normalized 
-        struct binary binary;
-        b_init(&binary);
-        b_load_macho(&binary, filename);
+        struct binary temp_binary;
+        b_init(&temp_binary);
+        b_load_macho(&temp_binary, filename);
 
-        char *str = binary.mach->strtab + 4;
-        struct nlist *nl = binary.mach->symtab;
+        char *str = temp_binary.mach->strtab + 4;
+        struct nlist *symtab = (struct nlist *) temp_binary.mach->symtab, *nl = symtab;
         for(auto p : funcsByName) {
-            if(nl - binary.mach->symtab >= binary.mach->nsyms) {
+            if(nl - symtab >= temp_binary.mach->nsyms) {
                 fprintf(stderr, "symbol overflow\n");
                 break;
             }
             memset(nl, 0, sizeof(*nl));
-            nl->n_un.n_strx = str - binary.mach->strtab;
+            nl->n_un.n_strx = str - temp_binary.mach->strtab;
             nl->n_value = p.second->startAddr & ~1;
+            nl->n_type = N_SECT;
+            nl->n_sect = NO_SECT;
             if(p.second->startAddr & 1) {
                 nl->n_desc |= N_ARM_THUMB_DEF;
             }
             
             auto size = p.first.size();
-            if(str + size >= binary.mach->strtab + binary.mach->strsize) {
+            if(str + size >= temp_binary.mach->strtab + temp_binary.mach->strsize) {
                 fprintf(stderr, "string overflow at %s\n", p.first.c_str());
                 abort();
             }
@@ -439,26 +456,26 @@ struct Binary {
             nl++;
         }
 
-        CMD_ITERATE(binary.mach->hdr, cmd) {
+        CMD_ITERATE(temp_binary.mach->hdr, cmd) {
             if(cmd->cmd == LC_SYMTAB) {
                 auto s = (struct symtab_command *) cmd;
-                s->nsyms = nl - binary.mach->symtab;
+                s->nsyms = nl - symtab;
             } else if(cmd->cmd == LC_DYSYMTAB) {
                 auto d = (struct dysymtab_command *) cmd;
                 d->iextdefsym = 0;
-                d->nextdefsym = nl - binary.mach->symtab;
+                d->nextdefsym = nl - symtab;
             }
         }
 
         
-        b_macho_store(&binary, output);
+        b_macho_store(&temp_binary, output);
     }
 };
 
 static void doCutPoints(Binary *ba, Binary *bb, bool explain = false) {
     auto funcsByHashA = ba->getFuncsByHash(), funcsByHashB = bb->getFuncsByHash();
     
-    set<uint32_t> cutPoints;
+    unordered_set<uint32_t> cutPoints;
     for(auto p : funcsByHashA) {
         if(p.second.size() == 1 &&
            funcsByHashB[p.first].size() == 1) {
@@ -473,7 +490,7 @@ static void doCutPoints(Binary *ba, Binary *bb, bool explain = false) {
             while(cutPoints.find((*it)->hash) == cutPoints.end()) if(++it == ba->funcsList.end()) goto done;
             while(cutPoints.find((*it2)->hash) == cutPoints.end()) if(++it2 == bb->funcsList.end()) goto done;
             if((*it)->hash != (*it2)->hash) printf("XXX ");
-            printf("%08x:%08x %x:%x\n", (*it)->startAddr, (*it2)->startAddr, (*it)->hash, (*it2)->hash);
+            printf("%08x:%08x %x:%x\n", (unsigned int) (*it)->startAddr, (unsigned int) (*it2)->startAddr, (*it)->hash, (*it2)->hash);
             it++; it2++;
         }
         done:;
@@ -569,18 +586,18 @@ static list<pair<Function *, Function *>> doMatch(Binary *ba, Binary *bb, bool e
     size_t size = mvs.size();
     MetaVertex *mvp = &mvs[0];
 
-    for(int iteration = 0; iteration < 6; iteration++) {
-        fprintf(stderr, "%d (%zd to go)\n", iteration, size);
+    for(int iteration = 1; iteration <= 6; iteration++) {
+        fprintf(stderr, "%d/6 (%zd points)\n", iteration, size);
         if(0) {
             // debug
             printf("--\n");
             #define F(addr) \
             for(auto p : xs[ba->funcs[addr]]) { \
-                printf("%x=%x %f\n", addr, p.first->startAddr, p.second); \
+                printf("%x=%x %f\n", addr, (unsigned int) p.first->startAddr, p.second); \
             } \
             if(1) for(auto e : ba->funcs[addr]->backward) { \
                 for(auto p : ys[e]) { \
-                    printf("%x->%x=%x->%x %f\n", e->source->startAddr, e->dest->startAddr, p.first->source->startAddr, p.first->dest->startAddr, p.second); \
+                    printf("%x->%x=%x->%x %f\n", (unsigned int) e->source->startAddr, (unsigned int) e->dest->startAddr, (unsigned int) p.first->source->startAddr, (unsigned int) p.first->dest->startAddr, p.second); \
                 } \
             }
             F(0x80063890)
@@ -601,16 +618,16 @@ static list<pair<Function *, Function *>> doMatch(Binary *ba, Binary *bb, bool e
 
     for(auto p : xs) {
         Function *maxFunction = NULL;
-        if(explain) printf("%08x (%s):\n", p.first->startAddr, p.first->name);
+        if(explain) printf("%08x (%s):\n", (unsigned int) p.first->startAddr, p.first->name);
         double maxValue = -1;
         for(auto p2 : p.second) {
-            if(explain) printf("  %x=%f (predict:%f,%f)\n", p2.first->startAddr, p2.second, p.first->predict(p2.first), p2.first->predict(p.first));
+            if(explain) printf("  %x=%f (predict:%f,%f)\n", (unsigned int) p2.first->startAddr, p2.second, p.first->predict(p2.first), p2.first->predict(p.first));
             if(p2.second > maxValue) {
                 maxValue = p2.second;
                 maxFunction = p2.first;
             }
         }
-        if(explain) printf("Max: %x\n\n", maxFunction ? maxFunction->startAddr : 0);
+        if(explain) printf("Max: %x\n\n", maxFunction ? (unsigned int) maxFunction->startAddr : 0);
         if(maxFunction) {
             result.push_back(make_pair(p.first, maxFunction));
         }
@@ -651,7 +668,7 @@ int main(__unused int argc, char **argv) {
                 argv++;
             }
             for(auto func : ba->funcsList) {
-                printf("%x-%x l=%ld h=%x n=%s f=%d b=%d t=%d\n", func->startAddr, (addr_t) (func->startAddr + 2*(func->end - func->start)), func->end - func->start, func->hash, func->name, (int) func->forward.size(), (int) func->backward.size(), func->type);
+                printf("%x-%x l=%u h=%x n=%s f=%d b=%d t=%d\n", (unsigned int) func->startAddr, (unsigned int) (func->startAddr + 2*(func->end - func->start)), (unsigned int) (func->end - func->start), func->hash, func->name, (int) func->forward.size(), (int) func->backward.size(), func->type);
                 if(refs) for(auto ref : func->refs) {
                     printf("  r:%x->%x (%s)\n", (int) ref.first.first, (int) ref.first.second, ref.second ? "(code)" : "(data)");
                 }
@@ -671,7 +688,7 @@ int main(__unused int argc, char **argv) {
             for(auto p : ba->funcsByHash) {
                 printf("%d - [%08x]:", (int) p.second.size(), p.first);
                 for(auto func : p.second) {
-                    printf("  %x", func->startAddr);
+                    printf("  %x", (unsigned int) func->startAddr);
                 }
                 printf("\n");
             }
@@ -683,7 +700,7 @@ int main(__unused int argc, char **argv) {
                 auto first = ba->funcs[myAddr], second = bb.funcs[otherAddr];
                 if(first && second) {
                     double forward = first->predict(second), backward = second->predict(first);
-                    printf("%.32s (%08x/%08x): %f\n", p.second, myAddr, otherAddr, (forward + backward) / 2);
+                    printf("%.32s (%08x/%08x): %f\n", p.second, (unsigned int) myAddr, (unsigned int) otherAddr, (forward + backward) / 2);
                 }
             }
         } else if(mode == "--matchF" || mode == "--matchB" || mode == "--trivial") {
@@ -707,14 +724,14 @@ int main(__unused int argc, char **argv) {
                     const char *trueName = ba->reverseSymbols[p.first->startAddr];
                     const char *name = bb.reverseSymbols[p.second->startAddr];
                     if(name && trueName && strcmp(name, trueName)) {
-                        printf("Wrong: %x=%x (%s = %s)\n", p.first->startAddr, p.second->startAddr, trueName, name);
+                        printf("Wrong: %x=%x (%s = %s)\n", (unsigned int) p.first->startAddr, (unsigned int) p.second->startAddr, trueName, name);
                     }
                 }
                 argv++;
             } else if(*argv && !strcmp(*argv, "--show")) {
                 for(auto p : result) {
                     auto func1 = p.first, func2 = p.second;
-                    printf("%08x/%08x %f/%f %s/%s\n", func1->startAddr, func2->startAddr, func1->predict(func2), func2->predict(func1), func1->name, func2->name);
+                    printf("%08x/%08x %f/%f %s/%s\n", (unsigned int) func1->startAddr, (unsigned int) func2->startAddr, func1->predict(func2), func2->predict(func1), func1->name, func2->name);
                 }
                 argv++;
             }
@@ -741,9 +758,9 @@ int main(__unused int argc, char **argv) {
             addr_t addr;
             auto range = b_macho_segrange(&ba->binary, "__TEXT");
             if(mode == "strref") {
-                addr = find_bof(range, find_int32(range, find_string(range, *argv++, 1, MUST_FIND), MUST_FIND), 2);
+                addr = find_bof(range, find_int32(range, find_string(range, *argv++, 1, MUST_FIND | TRAILING_ZERO), MUST_FIND), 2);
             } else if(mode == "inline-strref") {
-                addr = find_bof(range, find_string(range, *argv++, 1, MUST_FIND), 2);
+                addr = find_bof(range, find_string(range, *argv++, 1, MUST_FIND | TRAILING_ZERO), 2);
             } else if(mode == "pattern") {
                 addr = find_data(range, *argv++, 0, MUST_FIND);
             } else {
@@ -752,7 +769,7 @@ int main(__unused int argc, char **argv) {
             }
             auto func = ba->funcs[addr];
             if(!func) {
-                fprintf(stderr, "not a Function: %x\n", addr);
+                fprintf(stderr, "not a Function: %x\n", (unsigned int) addr);
                 abort();
             }
             ba->setFuncName(func, name);

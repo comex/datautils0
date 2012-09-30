@@ -4,9 +4,9 @@ override CFLAGS += -I$(DATA)
 include $(DATA)/Makefile.common
 
 BINS := $(OUTDIR)/check_sanity $(OUTDIR)/make_kernel_patchfile $(OUTDIR)/apply_patchfile $(OUTDIR)/dump $(OUTDIR)/nm $(OUTDIR)/extract_syms $(OUTDIR)/unpack sandboxc-armv6.c sandboxc-armv7.c
-#ifneq "$(GXX)" ""
-#BINS += $(OUTDIR)/grapher
-#endif
+ifneq "$(GXX)" ""
+BINS += $(OUTDIR)/grapher
+endif
 
 all: .data $(OUTDIR) $(BINS)
 

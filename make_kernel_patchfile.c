@@ -25,7 +25,7 @@ static inline void patch_with_range(const char *name, addr_t addr, prange_t pr) 
        patch_with_range(name, addr, (prange_t) {&to_[0], sizeof(to_)}); })
 
 addr_t find_sysctl(struct binary *binary, const char *name) {
-    addr_t cs = find_string(b_macho_segrange(binary, "__TEXT"), name, 0, MUST_FIND);
+    addr_t cs = find_string(b_macho_segrange(binary, "__TEXT"), name, 0, MUST_FIND | TRAILING_ZERO);
     addr_t csref = find_int32(b_macho_segrange(binary, "__DATA"), cs, MUST_FIND);
     return b_read32(binary, csref - 8);
 }
@@ -123,7 +123,7 @@ void do_kernel(struct binary *binary, struct binary *sandbox) {
     
     // sandbox
     range_t range = b_macho_segrange(binary, "__PRELINK_TEXT");
-    addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", 0, MUST_FIND), MUST_FIND), class >= _armv7) & ~1;
+    addr_t sb_evaluate = find_bof(range, find_int32(range, find_string(range, "bad opcode", 0, MUST_FIND | TRAILING_ZERO), MUST_FIND), class >= _armv7) & ~1;
     
     DECL_LAMBDA(l, addr_t, (const char *name), {
         if(!strcmp(name, "c_sb_evaluate_orig1")) return b_read32(binary, sb_evaluate);
